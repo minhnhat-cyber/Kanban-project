@@ -87,8 +87,7 @@ function KanbanBoard() {
     <div className="bg-dark text-light min-vh-100">
       <div className="container-fluid p-4">
         <div className="text-center mb-4">
-          <p className="text-secondary small mb-1">PROJECT 1</p>
-          <h1 className="h3 mb-1">Team Task</h1>
+          <h1 className="h3 mb-1">KANBAN</h1>
           <p className="text-secondary mb-0">
             Manage your team work in one place.
           </p>
@@ -132,10 +131,6 @@ function KanbanBoard() {
                     </span>
                     {column.title}
                   </h2>
-
-                  <button className="btn btn-sm btn-outline-light">
-                    + Add
-                  </button>
                 </div>
 
                 {column.tasks.map((task) => (
