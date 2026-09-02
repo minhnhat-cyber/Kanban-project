@@ -1,15 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import AddBoxIcon from "@mui/icons-material/AddBox";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
-import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
 
 const TASKS_KEY = "kanban-tasks";
 const CATEGORIES_KEY = "kanban-categories";
 
-// Replace these sample people with the person data supplied to your group.
 const PEOPLE = [
   { id: "P001", name: "Ben" },
   { id: "P002", name: "Emma" },
@@ -139,9 +133,7 @@ function KanbanBoard() {
         </header>
 
         <div className="d-flex justify-content-end mb-4">
-          <button type="button" className="btn btn-primary d-flex align-items-center gap-2" onClick={openNewTask}>
-            <AddBoxIcon fontSize="small" /> Add Task
-          </button>
+          <button type="button" className="btn btn-primary" onClick={openNewTask}>+ Add Task</button>
         </div>
 
         {showForm && (
@@ -223,12 +215,8 @@ function KanbanBoard() {
                           <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
                             <span className="badge text-bg-primary">{task.category}</span>
                             <div className="d-flex gap-1">
-                              <button type="button" className="btn btn-sm btn-outline-info d-flex align-items-center gap-1" onClick={() => openEditTask(task)}>
-                                <EditIcon fontSize="small" /> Edit
-                              </button>
-                              <button type="button" className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1" onClick={() => deleteTask(task.id)}>
-                                <DeleteIcon fontSize="small" /> Delete
-                              </button>
+                              <button type="button" className="btn btn-sm btn-outline-info" onClick={() => openEditTask(task)}>Edit</button>
+                              <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => deleteTask(task.id)}>Delete</button>
                             </div>
                           </div>
                           <h3 className="h6">{task.title}</h3>
@@ -239,13 +227,9 @@ function KanbanBoard() {
                             {task.completedDate && <div>Completed: {task.completedDate}</div>}
                           </div>
                           <div className="d-flex justify-content-between align-items-center mt-3 gap-2">
-                            <button type="button" className="btn btn-sm btn-outline-light d-flex align-items-center gap-1" disabled={columnIndex === 0} onClick={() => moveTask(task, -1)}>
-                              <ArrowBackIcon fontSize="small" /> Move
-                            </button>
+                            <button type="button" className="btn btn-sm btn-outline-light" disabled={columnIndex === 0} onClick={() => moveTask(task, -1)}>← Move</button>
                             <span className="badge text-bg-success">{person?.name || "Unassigned"}</span>
-                            <button type="button" className="btn btn-sm btn-outline-light d-flex align-items-center gap-1" disabled={columnIndex === COLUMNS.length - 1} onClick={() => moveTask(task, 1)}>
-                              Move <ArrowForwardIcon fontSize="small" />
-                            </button>
+                            <button type="button" className="btn btn-sm btn-outline-light" disabled={columnIndex === COLUMNS.length - 1} onClick={() => moveTask(task, 1)}>Move →</button>
                           </div>
                         </div>
                       </article>
