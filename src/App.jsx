@@ -1,4 +1,4 @@
-import { HashRouter, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import KanbanBoard from "./components/KanbanBoard";
 import Dashboard from "./components/Dashboard";
 

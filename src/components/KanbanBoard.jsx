@@ -1,411 +1,262 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import DeleteIcon from "@mui/icons-material/Delete";
 import AddBoxIcon from "@mui/icons-material/AddBox";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 
-const STORAGE_KEY = "kanban-tasks";
+const TASKS_KEY = "kanban-tasks";
+const CATEGORIES_KEY = "kanban-categories";
 
-const INITIAL_TASKS = [
-  {
-    id: 1,
-    title: "Create Kanban Board UI",
-    description: "Build the three-column layout.",
-    category: "Frontend",
-    startDate: "2026-09-01",
-    dueDate: "2026-09-05",
-    completedDate: null,
-    responsiblePersonId: "P001",
-    person: "M",
-    status: "TODO",
-  },
-  {
-    id: 2,
-    title: "Prepare README",
-    description: "Write project description and usage instructions.",
-    category: "Documentation",
-    startDate: "2026-09-02",
-    dueDate: "2026-09-08",
-    completedDate: null,
-    responsiblePersonId: "P002",
-    person: "T",
-    status: "TODO",
-  },
-  {
-    id: 3,
-    title: "Create Task Form",
-    description: "Allow users to add a new task.",
-    category: "Frontend",
-    startDate: "2026-09-02",
-    dueDate: "2026-09-06",
-    completedDate: null,
-    responsiblePersonId: "P001",
-    person: "M",
-    status: "DOING",
-  },
-  {
-    id: 4,
-    title: "Set up React Router",
-    description: "Create Board and Dashboard pages.",
-    category: "Setup",
-    startDate: "2026-08-28",
-    dueDate: "2026-08-29",
-    completedDate: "2026-08-29",
-    responsiblePersonId: "P001",
-    person: "M",
-    status: "DONE",
-  },
+// Replace these sample people with the person data supplied to your group.
+const PEOPLE = [
+  { id: "P001", name: "Ben" },
+  { id: "P002", name: "Emma" },
+  { id: "P003", name: "Liam" },
 ];
 
-const COLUMN_INFO = [
+const INITIAL_TASKS = [
+  { id: 1, title: "Create Kanban Board UI", description: "Build the three-column layout.", category: "Frontend", startDate: "2026-09-01", dueDate: "2026-09-05", completedDate: null, responsiblePersonId: "P001", status: "TODO" },
+  { id: 2, title: "Prepare README", description: "Write project description and usage instructions.", category: "Documentation", startDate: "2026-09-02", dueDate: "2026-09-08", completedDate: null, responsiblePersonId: "P002", status: "TODO" },
+  { id: 3, title: "Create Task Form", description: "Allow users to add a new task.", category: "Frontend", startDate: "2026-09-02", dueDate: "2026-09-06", completedDate: null, responsiblePersonId: "P001", status: "DOING" },
+  { id: 4, title: "Set up React Router", description: "Create Board and Dashboard pages.", category: "Setup", startDate: "2026-08-28", dueDate: "2026-08-29", completedDate: "2026-08-29", responsiblePersonId: "P001", status: "DONE" },
+];
+
+const COLUMNS = [
   { id: "TODO", title: "TO DO", color: "primary" },
   { id: "DOING", title: "DOING", color: "warning" },
   { id: "DONE", title: "DONE", color: "success" },
 ];
-  const EMPTY_FORM ={
-    title: "",
-    description: "",
-    category: "",
-    startDate: "",
-    dueDate: "",
-    responsiblePersonId: "",
-    person: "",
-    status: "TODO",
+const EMPTY_FORM = { title: "", description: "", category: "", newCategory: "", startDate: "", dueDate: "", responsiblePersonId: "", status: "TODO" };
+const today = () => new Date().toISOString().slice(0, 10);
+
+function fromStorage(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) || fallback;
+  } catch {
+    return fallback;
   }
+}
 
 function KanbanBoard() {
-  const [tasks, setTasks] = useState(() => {
-    const savedTasks = localStorage.getItem(STORAGE_KEY);
-
-    return savedTasks ? JSON.parse(savedTasks) : INITIAL_TASKS;
-  });
-
-  const [showForm, setShowForm] = useState(false);
+  const [tasks, setTasks] = useState(() => fromStorage(TASKS_KEY, INITIAL_TASKS));
+  const [categories, setCategories] = useState(() => fromStorage(CATEGORIES_KEY, ["Frontend", "Documentation", "Setup", "General"]));
   const [formData, setFormData] = useState(EMPTY_FORM);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
-  function handleInputChange(event) {
+  useEffect(() => localStorage.setItem(TASKS_KEY, JSON.stringify(tasks)), [tasks]);
+  useEffect(() => localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories)), [categories]);
+
+  const closeForm = () => {
+    setFormData(EMPTY_FORM);
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const openNewTask = () => {
+    setFormData(EMPTY_FORM);
+    setEditingId(null);
+    setShowForm(true);
+  };
+
+  const openEditTask = (task) => {
+    setFormData({ ...task, newCategory: "" });
+    setEditingId(task.id);
+    setShowForm(true);
+  };
+
+  const changeField = (event) => {
     const { name, value } = event.target;
+    setFormData((current) => ({ ...current, [name]: value }));
+  };
 
-    setFormData((currentForm) => ({
-      ...currentForm,
-      [name]: value,
-    }));
-  }
-
-  function handleAddTask(event) {
+  const saveTask = (event) => {
     event.preventDefault();
-
-    if (
-      formData.title.trim() === "" ||
-      formData.description.trim() === ""
-    ) {
-      alert("Please fill in all required fields.");
-      return;
-    }
-
-    if (
-      formData.startDate &&
-      formData.dueDate &&
-      formData.dueDate < formData.startDate
-    ) {
+    const newCategory = formData.newCategory.trim();
+    const category = newCategory || formData.category;
+    if (!category) return;
+    if (formData.dueDate < formData.startDate) {
       alert("Due date cannot be earlier than start date.");
       return;
     }
-
-    const newTask = {
-      id: Date.now(),
+    if (newCategory && !categories.includes(newCategory)) {
+      setCategories((current) => [...current, newCategory]);
+    }
+    const values = {
       title: formData.title.trim(),
       description: formData.description.trim(),
-      category: formData.category.trim() || "General",
+      category,
       startDate: formData.startDate,
       dueDate: formData.dueDate,
-      completedDate:
-        formData.status === "DONE"
-          ? new Date().toISOString().split("T")[0]
-          : null,
-      responsiblePersonId: formData.responsiblePersonId.trim(),
-      person:
-        formData.person.trim().charAt(0).toUpperCase() || "?",
+      responsiblePersonId: formData.responsiblePersonId,
       status: formData.status,
     };
 
-    setTasks((currentTasks) => [...currentTasks, newTask]);
+    if (editingId) {
+      setTasks((current) => current.map((task) => task.id === editingId ? {
+        ...task,
+        ...values,
+        completedDate: values.status === "DONE" ? task.completedDate || today() : null,
+      } : task));
+    } else {
+      setTasks((current) => [...current, {
+        id: Date.now(),
+        ...values,
+        completedDate: values.status === "DONE" ? today() : null,
+      }]);
+    }
+    closeForm();
+  };
 
-    setFormData(EMPTY_FORM);
-    setShowForm(false);
-  }
+  const moveTask = (task, step) => {
+    const currentIndex = COLUMNS.findIndex((column) => column.id === task.status);
+    const status = COLUMNS[currentIndex + step]?.id;
+    if (!status) return;
+    setTasks((current) => current.map((item) => item.id === task.id ? {
+      ...item,
+      status,
+      completedDate: status === "DONE" ? today() : null,
+    } : item));
+  };
 
-  function handleDeleteTask(taskId) {
-    setTasks((currentTasks) =>
-      currentTasks.filter((task) => task.id !== taskId)
-    );
-  }
+  const deleteTask = (id) => {
+    if (window.confirm("Delete this task?")) {
+      setTasks((current) => current.filter((task) => task.id !== id));
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  }, [tasks]);
+  return (
+    <div className="bg-dark text-light min-vh-100">
+      <div className="container-fluid p-4">
+        <header className="position-relative d-flex justify-content-center align-items-center mb-4">
+          <div className="text-center">
+            <h1 className="h3 mb-1">KANBAN</h1>
+            <p className="text-secondary mb-0">Manage your team work in one place.</p>
+          </div>
+          <Link to="/dashboard" className="btn btn-outline-info position-absolute end-0">View Dashboard</Link>
+        </header>
 
-  const columns = COLUMN_INFO.map((column) => ({
-    ...column,
-    tasks: tasks.filter((task) => task.status === column.id),
-  }));
-
-  const totalTasks = tasks.length;
-
-  const completedTasks = tasks.filter(
-    (task) => task.status === "DONE"
-  ).length;
-
-  const pendingTasks = tasks.filter(
-    (task) => task.status === "TODO"
-  ).length;
-
-return (
-  <div className="bg-dark text-light min-vh-100">
-    <div className="container-fluid p-4">
-      <div className="position-relative d-flex justify-content-center align-items-center mb-4">
-        <div className="text-center">
-          <h1 className="h3 mb-1">KANBAN</h1>
-
-          <p className="text-secondary mb-0">
-            Manage your team work in one place.
-          </p>
+        <div className="d-flex justify-content-end mb-4">
+          <button type="button" className="btn btn-primary d-flex align-items-center gap-2" onClick={openNewTask}>
+            <AddBoxIcon fontSize="small" /> Add Task
+          </button>
         </div>
 
-        <Link to="/dashboard" className="btn btn-outline-info position-absolute end-0">
-          View Dashboard
-        </Link>
-      </div>
-    
-
-        <div className="row align-items-center text-center mb-4">
-          <div className="col-12 col-md-3">
-            <h2 className="text-primary mb-0">{totalTasks}</h2>
-            <p className="text-secondary mb-0">Total</p>
-          </div>
-
-          <div className="col-12 col-md-3">
-            <h2 className="text-success mb-0">{completedTasks}</h2>
-            <p className="text-secondary mb-0">Completed</p>
-          </div>
-
-          <div className="col-12 col-md-3">
-            <h2 className="text-warning mb-0">{pendingTasks}</h2>
-            <p className="text-secondary mb-0">Pending</p>
-          </div>
-
-          <div className="col-12 col-md-3 mt-3 mt-md-0">
-            <button
-              type="button"
-              className="btn btn-primary w-100 d-flex justify-content-center align-items-center gap-2"
-              onClick={() => setShowForm(true)}
-            >
-              <AddBoxIcon fontSize="small" />
-              Add Task
-            </button>
-          </div>
-        </div>
         {showForm && (
-  <div className="card bg-dark border-secondary text-light mb-4">
-    <div className="card-body">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2 className="h5 mb-0">Add New Task</h2>
+          <section className="card bg-dark border-secondary text-light mb-4">
+            <div className="card-body">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h2 className="h5 mb-0">{editingId ? "Edit Task" : "Add New Task"}</h2>
+                <button type="button" className="btn-close btn-close-white" onClick={closeForm} aria-label="Close" />
+              </div>
+              <form onSubmit={saveTask}>
+                <div className="row g-3">
+                  <div className="col-12 col-md-6">
+                    <label className="form-label">Task title</label>
+                    <input className="form-control" name="title" value={formData.title} onChange={changeField} required />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label">Responsible person</label>
+                    <select className="form-select" name="responsiblePersonId" value={formData.responsiblePersonId} onChange={changeField} required>
+                      <option value="">Select a person</option>
+                      {PEOPLE.map((person) => <option key={person.id} value={person.id}>{person.name} ({person.id})</option>)}
+                    </select>
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label">Description</label>
+                    <textarea className="form-control" name="description" value={formData.description} onChange={changeField} rows="3" required />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label">Existing category</label>
+                    <select className="form-select" name="category" value={formData.category} onChange={changeField} required={!formData.newCategory}>
+                      <option value="">Select a category</option>
+                      {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label">Or add a new category</label>
+                    <input className="form-control" name="newCategory" value={formData.newCategory} onChange={changeField} placeholder="e.g. Testing" />
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label">Start date</label>
+                    <input type="date" className="form-control" name="startDate" value={formData.startDate} onChange={changeField} required />
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label">Due date</label>
+                    <input type="date" className="form-control" name="dueDate" value={formData.dueDate} onChange={changeField} required />
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label">Status</label>
+                    <select className="form-select" name="status" value={formData.status} onChange={changeField}>
+                      <option value="TODO">TO DO</option>
+                      <option value="DOING">DOING</option>
+                      <option value="DONE">DONE</option>
+                    </select>
+                  </div>
+                  <div className="col-12 d-flex justify-content-end gap-2">
+                    <button type="button" className="btn btn-outline-secondary" onClick={closeForm}>Cancel</button>
+                    <button type="submit" className="btn btn-primary">{editingId ? "Save Changes" : "Create Task"}</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </section>
+        )}
 
-        <button
-          type="button"
-          className="btn-close btn-close-white"
-          onClick={() => {
-            setShowForm(false);
-            setFormData(EMPTY_FORM);
-          }}
-          aria-label="Close"
-        />
-      </div>
-
-      <form onSubmit={handleAddTask}>
-        <div className="row g-3">
-          <div className="col-12 col-md-6">
-            <label className="form-label">Task title</label>
-            <input
-              type="text"
-              className="form-control"
-              name="title"
-              value={formData.title}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-
-          <div className="col-12 col-md-6">
-            <label className="form-label">Category</label>
-            <input
-              type="text"
-              className="form-control"
-              name="category"
-              value={formData.category}
-              onChange={handleInputChange}
-              placeholder="Frontend, Backend..."
-            />
-          </div>
-
-          <div className="col-12">
-            <label className="form-label">Description</label>
-            <textarea
-              className="form-control"
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              rows="3"
-            />
-          </div>
-
-          <div className="col-12 col-md-6">
-            <label className="form-label">Start date</label>
-            <input
-              type="date"
-              className="form-control"
-              name="startDate"
-              value={formData.startDate}
-              onChange={handleInputChange}
-            />
-          </div>
-
-          <div className="col-12 col-md-6">
-            <label className="form-label">Due date</label>
-            <input
-              type="date"
-              className="form-control"
-              name="dueDate"
-              value={formData.dueDate}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-
-          <div className="col-12 col-md-4">
-            <label className="form-label">Person ID</label>
-            <input
-              type="text"
-              className="form-control"
-              name="responsiblePersonId"
-              value={formData.responsiblePersonId}
-              onChange={handleInputChange}
-              placeholder="P001"
-            />
-          </div>
-
-          <div className="col-12 col-md-4">
-            <label className="form-label">Person name</label>
-            <input
-              type="text"
-              className="form-control"
-              name="person"
-              value={formData.person}
-              onChange={handleInputChange}
-              placeholder="Minh"
-            />
-          </div>
-
-          <div className="col-12 col-md-4">
-            <label className="form-label">Status</label>
-            <select
-              className="form-select"
-              name="status"
-              value={formData.status}
-              onChange={handleInputChange}
-            >
-              <option value="TODO">TO DO</option>
-              <option value="DOING">DOING</option>
-              <option value="DONE">DONE</option>
-            </select>
-          </div>
-
-          <div className="col-12 d-flex justify-content-end gap-2">
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={() => {
-                setShowForm(false);
-                setFormData(EMPTY_FORM);
-              }}
-            >
-              Cancel
-            </button>
-
-            <button type="submit" className="btn btn-primary">
-              Create Task
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
-        <hr className="border-secondary" />
-
-        <div className="row g-4">
-          {columns.map((column) => (
-            <div className="col-12 col-lg-4" key={column.id}>
-              <div className="bg-secondary bg-opacity-25 rounded-3 p-3 h-100">
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <h2 className="h6 mb-0">
-                    <span
-                      className={`badge rounded-pill text-bg-${column.color} me-2`}
-                    >
-                      {column.tasks.length}
-                    </span>
+        <main className="row g-4">
+          {COLUMNS.map((column, columnIndex) => {
+            const columnTasks = tasks.filter((task) => task.status === column.id);
+            return (
+              <div className="col-12 col-lg-4" key={column.id}>
+                <section className="bg-secondary bg-opacity-25 rounded-3 p-3 h-100">
+                  <h2 className="h6 mb-3">
+                    <span className={`badge rounded-pill text-bg-${column.color} me-2`}>{columnTasks.length}</span>
                     {column.title}
                   </h2>
-                </div>
-
-                {column.tasks.map((task) => (
-                  <div
-                    className="card bg-dark border-secondary text-light mb-3"
-                    key={task.id}
-                  >
-                    <div className="card-body">
-                      <div className="d-flex justify-content-between align-items-start mb-2">
-                        <span className="badge text-bg-primary">
-                          {task.category}
-                        </span>
-
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => handleDeleteTask(task.id)}
-                          aria-label={`Delete ${task.title}`}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </button>
-                      </div>
-
-                      <h3 className="h6">{task.title}</h3>
-
-                      <p className="card-text small text-secondary">
-                        {task.description}
-                      </p>
-
-                      <div className="d-flex justify-content-between align-items-center mt-3">
-                        <small className="text-secondary">
-                          Due: {task.dueDate}
-                        </small>
-
-                        <span className="badge rounded-circle text-bg-success p-2">
-                          {task.person}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {column.tasks.length === 0 && (
-                  <p className="text-secondary small text-center py-4">
-                    No tasks here yet.
-                  </p>
-                )}
+                  {columnTasks.map((task) => {
+                    const person = PEOPLE.find((item) => item.id === task.responsiblePersonId);
+                    return (
+                      <article className="card bg-dark border-secondary text-light mb-3" key={task.id}>
+                        <div className="card-body">
+                          <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+                            <span className="badge text-bg-primary">{task.category}</span>
+                            <div className="d-flex gap-1">
+                              <button type="button" className="btn btn-sm btn-outline-info d-flex align-items-center gap-1" onClick={() => openEditTask(task)}>
+                                <EditIcon fontSize="small" /> Edit
+                              </button>
+                              <button type="button" className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1" onClick={() => deleteTask(task.id)}>
+                                <DeleteIcon fontSize="small" /> Delete
+                              </button>
+                            </div>
+                          </div>
+                          <h3 className="h6">{task.title}</h3>
+                          <p className="card-text small text-secondary">{task.description}</p>
+                          <div className="small text-secondary">
+                            <div>Start: {task.startDate}</div>
+                            <div>Due: {task.dueDate}</div>
+                            {task.completedDate && <div>Completed: {task.completedDate}</div>}
+                          </div>
+                          <div className="d-flex justify-content-between align-items-center mt-3 gap-2">
+                            <button type="button" className="btn btn-sm btn-outline-light d-flex align-items-center gap-1" disabled={columnIndex === 0} onClick={() => moveTask(task, -1)}>
+                              <ArrowBackIcon fontSize="small" /> Move
+                            </button>
+                            <span className="badge text-bg-success">{person?.name || "Unassigned"}</span>
+                            <button type="button" className="btn btn-sm btn-outline-light d-flex align-items-center gap-1" disabled={columnIndex === COLUMNS.length - 1} onClick={() => moveTask(task, 1)}>
+                              Move <ArrowForwardIcon fontSize="small" />
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                  {columnTasks.length === 0 && <p className="text-secondary small text-center py-4">No tasks here yet.</p>}
+                </section>
               </div>
-            </div>
-          ))}
-        </div>
+            );
+          })}
+        </main>
       </div>
     </div>
   );
